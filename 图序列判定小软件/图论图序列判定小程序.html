@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图序列判定软件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        
+        :root {
+            --tw-color-primary: #10b981;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', system-ui, sans-serif;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+        }
+        
+        .canvas-container {
+            box-shadow: 0 25px 50px -12px rgb(16 185 129);
+        }
+        
+        .node {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 via-cyan-50 to-sky-100 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <!-- 标题栏 -->
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg">📊</div>
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900 tracking-tight">图序列判定软件</h1>
+                    <p class="text-emerald-600 font-medium">Havel-Hakimi 算法 · 实时可视化</p>
+                </div>
+            </div>
+            <div class="text-sm text-gray-500 flex items-center gap-2">
+                <div class="px-3 py-1 bg-white rounded-3xl shadow-sm flex items-center gap-1">
+                    <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    纯前端运行
+                </div>
+                <a href="https://github.com" target="_blank" 
+                   class="px-4 py-2 text-gray-700 hover:text-emerald-600 transition-colors flex items-center gap-1 text-sm font-medium">
+                    <span>源码</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L9 15" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="glass rounded-3xl shadow-2xl border border-white/60 p-8">
+            <!-- 输入区域 -->
+            <div class="mb-8">
+                <label class="block text-gray-700 text-lg font-medium mb-3 flex items-center gap-2">
+                    <span>请输入任意有限非负整数序列</span>
+                    <span class="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-2xl font-normal">空格、逗号、中文逗号、分号均支持</span>
+                </label>
+                
+                <div class="flex gap-4">
+                    <input 
+                        id="sequence-input"
+                        type="text"
+                        class="flex-1 px-6 py-5 text-xl font-medium bg-white border-2 border-gray-200 focus:border-emerald-500 rounded-3xl outline-none transition-all shadow-sm"
+                        placeholder="例如：3 3 2 2 1 1   或   4，3，3，2   或   2,2,2,2"
+                        onkeydown="if(event.keyCode===13) judge()">
+                    
+                    <button onclick="judge()"
+                            class="px-12 bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all text-white font-semibold text-xl rounded-3xl flex items-center gap-3 shadow-lg">
+                        <span>立即判定</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 示例 -->
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <div onclick="quickExample('3 3 2 2 1 1')" 
+                         class="cursor-pointer text-xs bg-white hover:bg-emerald-50 border border-gray-200 text-gray-600 px-4 py-2 rounded-3xl transition-colors">3 3 2 2 1 1</div>
+                    <div onclick="quickExample('2,2,2,2')" 
+                         class="cursor-pointer text-xs bg-white hover:bg-emerald-50 border border-gray-200 text-gray-600 px-4 py-2 rounded-3xl transition-colors">2,2,2,2</div>
+                    <div onclick="quickExample('4，3，3，2')" 
+                         class="cursor-pointer text-xs bg-white hover:bg-emerald-50 border border-gray-200 text-gray-600 px-4 py-2 rounded-3xl transition-colors">4，3，3，2</div>
+                    <div onclick="quickExample('1 1 1')" 
+                         class="cursor-pointer text-xs bg-white hover:bg-red-50 border border-gray-200 text-gray-600 px-4 py-2 rounded-3xl transition-colors">1 1 1（非图序列）</div>
+                    <div onclick="quickExample('0')" 
+                         class="cursor-pointer text-xs bg-white hover:bg-emerald-50 border border-gray-200 text-gray-600 px-4 py-2 rounded-3xl transition-colors">0（单个顶点）</div>
+                </div>
+            </div>
+
+            <!-- 结果区域 -->
+            <div id="result-panel" class="hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <div id="result-text" class="text-8xl font-bold tracking-tighter transition-all"></div>
+                    
+                    <div id="info-box" class="text-right max-w-xs">
+                        <div id="sequence-info" class="text-sm text-gray-600 bg-white rounded-2xl p-4 shadow-sm"></div>
+                    </div>
+                </div>
+
+                <!-- 错误提示 -->
+                <div id="error-message" class="hidden bg-red-50 text-red-600 px-6 py-4 rounded-3xl text-lg font-medium flex items-center gap-3">
+                    <span>⚠️</span>
+                    <span id="error-text"></span>
+                </div>
+
+                <!-- 绘图画布 -->
+                <div id="graph-container" class="canvas-container bg-white rounded-3xl p-4 border border-emerald-100 hidden">
+                    <canvas id="graph-canvas" width="700" height="700" class="mx-auto block rounded-2xl bg-[#f8fafc]"></canvas>
+                </div>
+            </div>
+
+            <!-- 初始提示 -->
+            <div id="empty-state" class="text-center py-16">
+                <div class="mx-auto w-24 h-24 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center text-6xl mb-6 shadow-inner">📐</div>
+                <h2 class="text-2xl font-semibold text-gray-700 mb-2">等待您的输入</h2>
+                <p class="text-gray-500 max-w-xs mx-auto">输入一个非负整数序列，点击“立即判定”<br>系统将即时判断并绘制对应的简单无向图</p>
+            </div>
+        </div>
+
+        <!-- 底部信息 -->
+        <div class="mt-8 text-center text-xs text-gray-400 flex items-center justify-center gap-6">
+            <div>基于 Havel-Hakimi 算法构造简单图</div>
+            <div class="w-px h-3 bg-gray-300"></div>
+            <div>支持任意长度序列（推荐 ≤ 40）</div>
+            <div class="w-px h-3 bg-gray-300"></div>
+            <div> 吉倓嶙 202521900314</div>
+            <div onclick="window.location.reload()" class="cursor-pointer hover:text-emerald-500 flex items-center gap-1">
+                <span>重置软件</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 核心算法：迭代式 Havel-Hakimi 构造 ====================
+
+        function constructGraph(degSeq) {
+            if (!degSeq || degSeq.length === 0) {
+                return { success: true, edges: [] };
+            }
+
+            const n = degSeq.length;
+            const totalSum = degSeq.reduce((a, b) => a + b, 0);
+            if (totalSum % 2 !== 0) {
+                return { success: false, edges: null };
+            }
+
+            const maxD = Math.max(...degSeq);
+            const minD = Math.min(...degSeq);
+            if (maxD >= n || minD < 0) {
+                return { success: false, edges: null };
+            }
+
+            // 1. 初始按度降序排序（决定顶点1~n的编号顺序）
+            let vertexList = degSeq.map((d, i) => ({ id: i, deg: d }));
+            vertexList.sort((a, b) => b.deg - a.deg || a.id - b.id);
+
+            // 2. nodes[id] 存储固定顶点（id 0~n-1 对应显示标签 1~n）
+            let nodes = [];
+            for (let i = 0; i < n; i++) {
+                nodes.push({ id: i, currentDeg: vertexList[i].deg });
+            }
+
+            let edges = [];
+            let active = new Set(nodes.map(v => v.id));
+
+            // 3. 迭代构造
+            while (active.size > 0) {
+                let current = Array.from(active)
+                    .map(id => ({ id: id, deg: nodes[id].currentDeg }))
+                    .filter(v => v.deg > 0);
+
+                if (current.length === 0) break;
+
+                // 每次重新按当前剩余度降序排序
+                current.sort((a, b) => b.deg - a.deg || a.id - b.id);
+
+                let vObj = current[0];
+                let v = vObj.id;
+                let k = nodes[v].currentDeg;
+
+                if (k >= current.length) {
+                    return { success: false, edges: null };
+                }
+
+                // 连接到当前排序中紧随其后的 k 个顶点
+                let toConnect = current.slice(1, 1 + k).map(u => u.id);
+
+                for (let u of toConnect) {
+                    edges.push([Math.min(v, u), Math.max(v, u)]);
+                    nodes[v].currentDeg -= 1;
+                    nodes[u].currentDeg -= 1;
+                }
+
+                // 移除已满足的顶点
+                if (nodes[v].currentDeg === 0) {
+                    active.delete(v);
+                }
+                for (let u of toConnect) {
+                    if (nodes[u].currentDeg <= 0) {
+                        active.delete(u);
+                    }
+                }
+            }
+
+            // 4. 最终校验所有度数归零
+            const allZero = nodes.every(v => v.currentDeg === 0);
+            if (!allZero) {
+                return { success: false, edges: null };
+            }
+
+            // 去重（理论上无需，但安全）
+            const edgeSet = new Set(edges.map(e => e.join(',')));
+            const uniqueEdges = Array.from(edgeSet).map(s => s.split(',').map(Number));
+
+            return { success: true, edges: uniqueEdges };
+        }
+
+        // ==================== 绘图函数（圆形布局） ====================
+        function drawGraph(canvas, edges, n) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width;
+            const H = canvas.height;
+            
+            ctx.clearRect(0, 0, W, H);
+            
+            // 背景网格（轻微）
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            for (let i = 30; i < W; i += 30) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, H);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(W, i);
+                ctx.stroke();
+            }
+
+            if (n === 0) return;
+
+            const cx = W / 2;
+            const cy = H / 2;
+            // n=1 时 radius=0 自动居中
+            const radius = n <= 1 ? 0 : Math.min(cx, cy) * 0.78;
+
+            // 计算每个顶点坐标（从正上方开始）
+            const positions = [];
+            for (let i = 0; i < n; i++) {
+                const angle = 2 * Math.PI * i / n - Math.PI / 2;
+                const x = cx + radius * Math.cos(angle);
+                const y = cy + radius * Math.sin(angle);
+                positions.push({ x, y });
+            }
+
+            // 1. 先画所有边（带轻微透明度和粗细）
+            const drawn = new Set();
+            ctx.strokeStyle = '#1e2937';
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+            
+            edges.forEach(([u, v]) => {
+                if (u === v) return;
+                const key = [Math.min(u, v), Math.max(u, v)].join('-');
+                if (drawn.has(key)) return;
+                drawn.add(key);
+                
+                const p1 = positions[u];
+                const p2 = positions[v];
+                
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+
+            // 2. 再画顶点（带光晕）
+            const nodeR = Math.max(32 - Math.floor(n / 5), 14);
+            const fontSize = Math.max(18 - Math.floor(n / 8), 10);
+            
+            for (let i = 0; i < n; i++) {
+                const { x, y } = positions[i];
+                
+                // 外光晕
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#10b981';
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                ctx.beginPath();
+                ctx.arc(x, y, nodeR + 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // 顶点圆
+                ctx.fillStyle = '#67e8f9';
+                ctx.strokeStyle = '#0f766e';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(x, y, nodeR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // 编号
+                ctx.fillStyle = '#0f172a';
+                ctx.font = `700 ${fontSize}px 'Noto Sans SC'`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText((i + 1).toString(), x, y);
+            }
+            
+            // 标题小字
+            ctx.fillStyle = '#64748b';
+            ctx.font = '500 13px "Noto Sans SC"';
+            ctx.textAlign = 'center';
+            ctx.fillText(`n = ${n} 顶点（圆形布局）`, cx, H - 25);
+        }
+
+        // ==================== 主判定函数 ====================
+        function judge() {
+            const input = document.getElementById('sequence-input').value.trim();
+            const resultPanel = document.getElementById('result-panel');
+            const emptyState = document.getElementById('empty-state');
+            const errorDiv = document.getElementById('error-message');
+            const graphContainer = document.getElementById('graph-container');
+            
+            // 清空上一次结果
+            errorDiv.classList.add('hidden');
+            graphContainer.classList.add('hidden');
+            
+            if (!input) {
+                showError('请输入序列！');
+                return;
+            }
+            
+            // 解析输入（支持多种分隔符）
+            let cleaned = input
+                .replace(/，/g, ' ')
+                .replace(/；/g, ' ')
+                .replace(/,/g, ' ')
+                .replace(/;/g, ' ');
+            
+            const seq = cleaned.split(/\s+/).map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+            
+            if (seq.length === 0 || seq.some(x => x < 0)) {
+                showError('请输入有效的非负整数序列！<br>示例：3 3 2 2 1 1');
+                return;
+            }
+            
+            // 执行算法
+            const result = constructGraph(seq);
+            
+            emptyState.classList.add('hidden');
+            resultPanel.classList.remove('hidden');
+            
+            const resultText = document.getElementById('result-text');
+            const infoBox = document.getElementById('sequence-info');
+            
+            if (!result.success) {
+                resultText.innerHTML = `<span class="text-red-500">否</span>`;
+                resultText.style.color = '#ef4444';
+                infoBox.innerHTML = `<span class="text-red-500 font-medium">该序列不是图序列</span><br><span class="text-xs text-gray-400">（和为奇数 或 最大度 ≥ 顶点数 或 存在负数）</span>`;
+                graphContainer.classList.add('hidden');
+                return;
+            }
+            
+            // 是图序列
+            resultText.innerHTML = `<span class="text-emerald-500">是</span>`;
+            resultText.style.color = '#10b981';
+            
+            const sortedDeg = [...seq].sort((a, b) => b - a);
+            infoBox.innerHTML = `
+                <div class="text-emerald-700 font-medium mb-1">输入序列：${seq.join(' ')}</div>
+                <div class="text-xs text-gray-500">排序后度序列：${sortedDeg.join(' ')}</div>
+                <div class="text-xs text-emerald-600 mt-3">已成功构造简单图（无向、无自环、无重边）</div>
+            `;
+            
+            // 显示画布并绘制
+            graphContainer.classList.remove('hidden');
+            const canvas = document.getElementById('graph-canvas');
+            drawGraph(canvas, result.edges, seq.length);
+        }
+
+        function showError(msg) {
+            const errorDiv = document.getElementById('error-message');
+            document.getElementById('error-text').innerHTML = msg;
+            errorDiv.classList.remove('hidden');
+            
+            // 自动隐藏 empty state
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('result-panel').classList.remove('hidden');
+        }
+
+        function quickExample(example) {
+            document.getElementById('sequence-input').value = example;
+            judge();
+        }
+
+        // ==================== Tailwind 初始化 + 键盘支持 ====================
+        function initTailwind() {
+            tailwind.config = {
+                content: [],
+                theme: {
+                    extend: {}
+                }
+            };
+        }
+
+        window.onload = function() {
+            initTailwind();
+            // 聚焦输入框
+            document.getElementById('sequence-input').focus();
+            
+            console.log('%c🎉 图序列判定软件（HTML版）已启动！', 'color:#10b981; font-size:13px; font-weight:700');
+        };
+    </script>
+</body>
+</html>
