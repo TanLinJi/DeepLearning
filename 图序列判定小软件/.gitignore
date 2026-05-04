@@ -1,0 +1,14 @@
+# Build artifacts
+output/
+dist/
+output-windows/
+
+# Python
+__pycache__/
+*.pyc
+*.spec
+build/
+
+# OS
+.DS_Store
+Thumbs.db

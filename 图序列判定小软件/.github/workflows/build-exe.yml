@@ -1,0 +1,30 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '图论图序列判定小程序_standalone.html'
+      - '.github/workflows/build-exe.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build standalone EXE
+        run: |
+          npm install -g nativefier
+          nativefier --name "图序列判定" --platform windows --arch x64 --portable 图论图序列判定小程序_standalone.html ./dist
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 图序列判定-Windows
+          path: dist/图序列判定-win32-x64/
